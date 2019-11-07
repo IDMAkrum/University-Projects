@@ -1,0 +1,1 @@
+People detection program for images. It uses the Histogram of Gradients method for object detection in combination with a Supper Vector Machine (SVM) for classification. The associated dataset used can be found at: https://drive.google.com/open?id=1Q0QvYY7A43XQIGH9THykBO-jb5rvY1nV.
