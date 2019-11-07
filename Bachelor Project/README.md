@@ -1,0 +1,1 @@
+Bachelor Project done for the completion of my BSc in Artificial Intelligence. The project finished with an 8 out of 10 grade. This folder contains the final thesis written as well as the .R code for the RF and KNN algorithms (and the data processing). The data used to train the classifiers is not included, since it is not in the public domain. 
