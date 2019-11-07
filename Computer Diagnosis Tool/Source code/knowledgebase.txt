@@ -1,0 +1,459 @@
+Knowledge Base
+
+Goal
+diagnosis
+aged email program; The program you use to manage your email is outdated. Get a new email program like Thunderbird, or use your email in your browser.
+email setting issue; There probably is a setting wrong, or configurations may have changed. Please consult a human expert.
+printer ink; Your printer is out of ink. Buy new ink.
+printer off; Your printer is not on. Turn it on by pressing the on-symbol.
+printer cable outlet; Your printer is not plugged into a socket. Plug it in.
+printer cable computer; Your printer is not connected with your computer. Connect your printer to your computer with a USB cable.
+printer network; There is a problem with your printer's connection to the internet. Try to connect it to your computer with a cable instead.
+update connection; Your computer is not connected to the internet. An internet connections is needed to update.
+update error; The problem is a known error. Present error to human expert.
+slowness program overload; You have a lot of programs on your computer. That slows it down. Remove some programs, or contact a human expert if you don't know which programs to delete.
+slowness hard drive; You have no more space on your hard drive. That slows a computer down. Free up some space, for example by deleting some old photos or videos.
+slowness malware; You may have malicious software on your computer that is slowing it down. Contact a human expert for further help.
+slowness update; Updating your computer to the latest version may help.
+slowness start up; You have a lot of programs that start when the computer starts up. Contact a human expert.
+internet computer; The problem lies with your computer, not the internet itself. Contact a human expert.
+internet speed; If all devices suffer from slowness, the issue probably lies with your provider. Contact your internet provider (Ziggo, KPN, etcetera) for more information and help.
+internet cable; There is something wrong with your cabled internet. Check whether the cable is plugged in correctly. If so, contact a human expert.
+internet wireless; There is something wrong with your wireless internet. Try using a cable for wired internet.
+internet off; Your internet is turned off! Turn it on by clicking on the symbol, and select a network to connect with.
+unknown; I don't know what the problem could be, sorry… Contact a human expert for further help, and show them the log file.
+end
+
+Rule
+Conditions
+too_much_software; true
+category; slowness
+Result
+diagnosis; slowness program overload
+end
+
+Rule
+Conditions
+harddrive_overfilled; true
+category; slowness
+Result
+diagnosis; slowness hard drive
+end
+
+Rule
+Conditions
+not_self_installed_software; true
+odd_behaviour; true
+category; slowness
+Result
+diagnosis; slowness malware
+end
+
+Rule
+Conditions
+old_age; true
+deterred_updates; true
+category; slowness
+Result
+diagnosis; slowness update
+end
+
+Rule
+Conditions
+too_much_software; true
+significant_startup_software; true
+category; slowness
+Result
+diagnosis; slowness start up
+end
+
+Rule
+Conditions
+email_in; true
+email_out; false
+category; email
+Result
+diagnosis; aged email program
+end
+
+Rule
+Conditions
+email_in; false
+email_out; true
+internet_works; true
+category; email
+Result
+diagnosis; email setting issue
+end
+
+Rule
+Conditions
+email_in; true
+email_out; false
+internet_works; true
+category; email
+Result
+diagnosis; email setting issue
+end
+
+Rule
+Conditions
+email_in; false
+email_out; false
+internet_works; true
+category; email
+Result
+diagnosis; email setting issue
+end
+
+Rule
+Conditions
+out_of_ink; true
+can_print; true
+category; printing
+Result
+diagnosis; printer ink
+end
+
+Rule
+Conditions
+can_print; false
+printer_plugged_in; false
+category; printing
+Result
+diagnosis; printer cable outlet
+end
+
+Rule
+Conditions
+can_print; false
+printer_wireless; false
+printed_pc_connected; false
+category; printing
+Result
+diagnosis; printer cable computer
+end
+
+Rule
+Conditions
+can_print; false
+printed_plugged_in; true
+printer_wireless; true
+category; printing
+Result
+diagnosis; printer network
+end
+
+Rule
+Conditions
+internet_works; false
+category; updating
+Result
+diagnosis; update connection
+end
+
+Rule
+Conditions
+update_gives_error; true
+category; updating
+Result
+diagnosis; update error
+end
+
+Rule
+Conditions
+internet_works; true
+internet_slow; true
+Result
+diagnosis; internet speed
+end
+
+
+Rule
+Conditions
+websites_work; false
+wifi_pictogram_found; true
+wifi_pc_on; false
+Result
+diagnosis; internet off
+end
+
+Rule
+Conditions
+internet_works; false
+wired_internet; true
+Result
+diagnosis; internet cable
+end
+
+Rule
+Conditions
+internet_works; false
+using_wifi; true
+wifi_pc_on; true
+wireless_works; false
+Result
+diagnosis; internet wireless
+end
+
+Rule
+Conditions
+internet_works; false
+using_wifi; true
+wifi_pc_on; true
+wireless_works; true
+Result
+diagnosis; internet computer
+end
+
+Rule
+Conditions
+connect_to_nos; true
+connect_to_google; false
+Result
+internet_works; true
+end
+
+Rule
+Conditions
+connect_to_nos; false
+connect_to_google; false
+Result
+internet_works; false
+end
+
+Rule
+Conditions
+connect_to_nos; false
+connect_to_google; true
+Result
+internet_works; true
+end
+
+Rule
+Conditions
+connect_to_nos; true
+connect_to_google; true
+Result
+internet_works; true
+end
+
+Question
+Can you receive emails? You could ask someone to send you an email to check if you're not sure.
+Options
+1: Yes
+email_in; true
+2: No
+email_in; false
+end
+
+Question
+Can you send emails? You could send someone you know an email if you're not sure.
+Options
+1: Yes
+email_out; true
+2: No
+email_out; false
+end
+
+Question
+Can you still print something (even blank page is okay), or copy something using the scanner in your printer, if you have one?
+Options
+1: Yes
+can_print; true
+2: No
+can_print; false
+end
+
+Question
+Please check your cables. Is there a cable from your printer to a wall outlet?
+Options
+1: Yes
+printer_plugged_in; true
+2: No
+printer_plugged_in; false
+end
+
+Question
+Please check your cables. Is there a cable from your printer inserted into your computer?
+Options
+1: Yes
+printer_pc_connected; true
+2: No
+printer_pc_connected; false
+end
+
+Question
+Is there a wifi symbol on your printer with a light that is on? Or does your printer say "network" behind it?
+Options
+1: Yes
+printer_wireless; true
+2: No
+printer_wireless; false
+end
+
+
+Question
+If you print something are the words/images faded, unclear, or not there at all?
+Options
+1: Yes
+out_of_ink; true
+2: No
+out_of_ink; false
+end
+
+Question
+On your printer should be either a small light, or a display (or both). Is either one on?
+Options
+1: Yes
+printer_on; true
+2: No
+printer_on; false
+end
+
+Question
+Is internet slow across all devices using either wifi or cabled internet?
+Options
+1: Yes
+internet_slow; true
+2: No
+internet_slow; false
+end
+
+Question
+Can you load www.google.com in your web browser (Chrome, Firefox, Internet Explorer)?
+Options
+1: Yes
+connect_to_google; true
+2: No
+connect_to_google; false
+end
+
+Question
+Can you load www.nos.nl in your web browser (Chrome, Firefox, Internet Explorer)?
+Options
+1: Yes
+connect_to_nos; true
+2: No
+connect_to_nos; false
+end
+
+
+Question
+In your taskbar (bar on bottom of screen), can you find your wifi signal? It will be bars or a dot with arches.
+Options
+1: Yes
+using_wifi; true
+2: No
+using_wifi; false
+3: there's a computer instead
+wired_internet; true
+end
+
+Question
+Is there a red cross through your wifi symbol (bars or dot with arches in your taskbar)?
+Options
+1: Yes
+wifi_pc_on; false
+2: No
+wifi_pc_on; true
+end
+
+
+Question
+Can you load google and nos on a smartphone or tablet when you're using wifi (if you're seeing a number with a g, you're not using wifi!)?
+Options
+1: Yes
+wireless_works; true
+2: No
+wireless_works; false
+end
+
+Question
+If you look at the amount of programs installed in the start menu (bottom left), does this exceed 20 installed programs which are not often used?
+Options
+1: Yes
+too_much_software; true
+2: No
+too_much_software; false
+end
+
+Question
+If you open Windows Explorer and look at the storage, is any of them filled for more than 90%?
+Options
+1: Yes
+harddrive_overfilled; true
+2: No
+harddrive_overfilled; false
+end
+
+Question
+Does the Windows Update program give an error message?
+Options
+1: Yes
+update_gives_error; true
+2: No
+update_gives_error; false
+end
+
+Question
+Is there software running on your PC which you don't recognise?
+Options
+1: Yes
+not_self_installed_software; true
+2: No
+not_self_installed_software; false
+end
+
+Question
+Is your computer showing odd behaviour, or doing unexpected things?
+Options
+1: Yes
+odd_behaviour; true
+2: No
+odd_behaviour; false
+end
+
+Question
+Is the PC older than 5 years, and has it been taken care of?
+Options
+1: Yes
+old_age; true
+2: No
+old_age; false
+end
+
+Question
+Do you remember software updating, or updating the software on your PC yourself?
+Options
+1: Yes
+deterred_updates; false
+2: No
+deterred_updates; true
+end
+
+Question
+Opening Task Manager (press ctrl + alt + del simultaneously) and selecting Start-up, are there more than 10 entries enabled?
+Options
+1: Yes
+significant_startup_software; true
+2: No
+significant_startup_software; false
+end
+
+Question
+What kind of problem do you have?
+Options
+1: Email problem
+category; email
+2: Internet problem
+category; internet
+3: Printing problem
+category; printing
+4: Slowness problem
+category; slowness
+5: Updating problem
+category; updating
+end
+
+!
