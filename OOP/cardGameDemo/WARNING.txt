@@ -1,0 +1,5 @@
+WARNING - DO NOT CHANGE THE FILES IN THIS FOLDER, OR ANY IN IT
+
+This is the demo program for Card Game. If you change it, there will be
+problems with your pull request. You will have to fix changes before you can
+merge.
