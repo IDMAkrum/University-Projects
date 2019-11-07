@@ -1,0 +1,1 @@
+A tool made to diagnose simple computer problems for the course Knowledge Technology Practical. The primary learning goal of the course was to learn how to implement and use a knowledge base. The project was made in conjunction with Marco Breemhaar (@mbreemhaar) and Peter Kegel (@t0pg3ar). 
