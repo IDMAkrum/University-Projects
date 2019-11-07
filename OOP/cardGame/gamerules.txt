@@ -1,0 +1,45 @@
+Since the rules of the game of Mau Mau (Dutch: pesten) vary a lot, this file lists the specific rules the program should use:
+
+The game is played with a deck of 54 cards: 52 normal cards and 2 jokers.
+
+Each player is dealt 7 cards. One card is put face-up on the table.* Cards will be put on top of this card. We will therefore
+refer to it as the stack. The rest of the deck is put on the table face-down. The human player has the first turn.
+
+A player can put one of his cards on the face-up card on the table. This card should be of either the same suit or the same value.
+If the player does not have such a card, he has to draw a card from the deck. If this card is of the same suit or same value, the
+player can put it on the stack right away. If he does not, it's the next player's turn.
+
+The first player to lose all his cards is the winner.
+
+For the following cards, there are special rules:
+
+Ace:
+	- When this card is put on the stack, the order of the turns will be inverted.
+	- When there are only two players left, the player can put another card on the table.
+
+Two:
+	- When this card is put on the stack, the next player has to draw two cards from the deck. **
+
+Seven:
+	- When a player puts this card on the stack, he may immediately put another card on.
+
+Eight:
+	- When this card is put on the stack, the next player has to skip a turn.
+
+Jack:
+	- When a player puts this card on the stack, he may call the suit the next player has to put on the stack.
+	- This card can be put on any suit.
+
+King:
+	- When a player puts this card on the stack, he may immediately put another card on.
+
+Joker:
+	- The joker can be put on any other card. When this card is put on the stack, the next player has to draw five cards from 
+	the deck.
+
+
+
+ *)	The first card cannot be one with the special rules. If this is the case, another card will be drawn from the deck.
+**)	If the player has to draw cards from the deck because the previous player put a two or a joker on the stack, he may
+	also put on another two or joker on the stack to add respectively two or five cards to the number of cards to draw,
+	which the following player will have to take (or again put on another two or joker).
