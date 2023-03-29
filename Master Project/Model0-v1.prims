@@ -1,0 +1,323 @@
+// Model: Painting the wall (find the shaded area)
+// Written by: I.D.M. Akrum
+// Date: 07/03/2022
+
+define task shaded-area {
+  initial-goals: (read-task) 
+  default-activation: 1.0 // All chunks defined in this model receive a fixed baselevel activation of 1.0
+  ol: t
+  rt: -2.0
+  lf: 0.2
+  default-operator-self-assoc: 0.0
+  egs: 0.05
+  retrieval-reinforces: t
+}
+
+// read the task from the screen and make it your current goal
+define goal read-task {
+	operator read {
+		V1 = screen
+		V4 <> nil
+	==>
+		V4 -> G1
+		>>V3 // shift focus to the first shape
+	}
+}
+
+// Write down a previously-found answer and reset the goal and WM
+define goal do-write {
+	operator write-answer {
+		G1 = write
+	==>
+		write -> AC1
+		*task -> AC2
+		*answer -> AC3
+		nil -> G1
+		nil -> WM0
+	}
+}
+
+// Find a shaded area, i.e. the area of a shape minus the other areas within that shape
+define goal shaded-area {
+	// Find the area of the top shape
+	operator top-area {
+		G1 = shaded-area
+		V1 = rectangle
+		V3 <> nil
+		V6 <> nil
+	==>
+		V6 -> WM1
+		V3 -> WM2
+		>>V3
+	}
+	
+	// If an area is missing, find that first
+	operator missing-area {
+		G1 = shaded-area
+		V1 = rectangle
+		V6 = nil
+	==>
+		area -> G1
+		nil -> WM0
+	}
+
+	// Subtract intermediate areas from the top area
+	operator subtract-area {
+		G1 = shaded-area
+		WM1 <> nil
+		WM2 = V0
+		V1 = rectangle
+		V6 <> nil
+	==>
+		V6 -> WM2
+		subtract-fact -> *fact-type
+	}
+
+	// Move on to the next shape within the top shape
+	operator next-shape {
+		G1 = shaded-area
+		WM1 <> nil
+		WM2 = nil
+		V2 <> nil
+	==>
+		V2 -> WM2
+		>>V2
+	}
+
+	// This runs if the next V2-level item is not a shape but e.g. a base or height
+	operator not-a-shape {
+		G1 = shaded-area
+		WM1 <> nil
+		WM2 = V0
+		V1 <> rectangle
+	==>
+		nil -> WM2
+	}
+
+	// Keep WM1 as the total of the shaded-area calculations
+	operator update-shaded-area {
+		G1 = shaded-area
+		WM3 <> nil
+	==>
+		WM3 -> WM1
+		nil -> WM2
+		nil -> WM3
+	}
+
+	// Finish the shaded area calculation and signal the writing action
+	operator end-shaded-area {
+		G1 = shaded-area
+		WM1 <> nil
+		WM2 = nil	// ensures this only happens after an update-shaded-area call
+		V2 = nil
+	==>
+		V<<	// return to the top shape
+		G1 -> *task
+		WM1 -> *answer 
+		write -> G1 
+	}
+}
+
+// Calculate the area of a rectangle
+define goal area {
+	// If we have the base and height, multiply them through the math skill
+	operator base-times-height {
+		G1 = area
+		V4 <> nil
+		V5 <> nil
+		WM1 = nil
+		WM2 = nil
+	==>
+		V4 -> WM1
+		V5 -> WM2
+		multiply-fact -> *fact-type
+	}
+
+	// If we have the answer in the imaginal buffer, signal the writing action
+	operator end-area {
+		G1 = area
+		WM3 <> nil
+	==>
+		G1 -> *task
+		WM3 -> *answer 
+		write -> G1 
+	}
+
+	// If we miss the base, we switch to the base skill to determine the base
+	operator missing-base {
+		G1 = area
+		V4 = nil
+		V3 <> nil
+	==>
+		base -> G1
+		nil -> WM0
+		>>V3
+	}
+}
+
+// Find the base of a rectangle, where the base is given by known lines and/or other shapes
+define goal base {
+	// Initialise the base as the first known line we come across
+	operator first-base {
+		G1 = base 
+		WM1 = nil
+		V1 <> height // we are only interested in lines that make up the base of the shape
+		V4 <> nil
+	==>
+		V4 -> WM1
+	}
+
+	// Move on to the next V2-level item if it exists
+	operator next-base {
+		G1 = base
+		WM1 <> nil
+		WM2 = nil
+		V2 <> nil
+	==>
+		V2 -> WM2	// temporary placeholder to show another number will come
+		>>V2
+	}
+
+	// Add the base of a line to that in the WM1 slot
+	operator add-base {
+		G1 = base
+		WM1 <> nil
+		WM2 = V0
+		V1 <> height
+		V4 <> nil
+	==>
+		V4 -> WM2
+		add-fact -> *fact-type
+	}
+
+	// Keep WM1 as the total of the base calculations
+	operator update-base {
+		G1 = base
+		WM3 <> nil
+	==>
+		WM3 -> WM1
+		nil -> WM2
+		nil -> WM3
+	}
+
+	// If there are no more lines/shapes, write down the total base
+	operator end-base {
+		G1 = base
+		WM1 <> nil
+		WM2 = nil	// ensures this only happens after an update-base call
+		V2 = nil
+	==>
+		V<<	// return to the top shape
+		G1 -> *task
+		WM1 -> *answer 
+		write -> G1 
+	}
+}
+
+// Do some math with slots in the imaginal buffer
+// Doing math is simply "remembering" the answer 
+define goal math {
+	// start when there's two numbers in the imaginal buffer but no answer
+	operator start-math {
+		WM1 <> nil
+		WM2 <> nil
+		WM3 = nil
+		RT1 = nil	// Don't start math if we already retrieved something
+	==>
+		*fact-type -> RT1	// fact-type specifies which math operation we're doing e.g. addition or multiplication
+		WM1 -> RT2
+		WM2 -> RT3
+	}
+
+	// End math if we retrieved the answer. Place the answer in WM3 of imaginal buffer
+	operator end-math {
+		RT4 <> nil
+		WM3 = nil
+	==>
+		RT4 -> WM3
+	}
+}
+
+define action write {
+	latency: 0.3 // min-fitts-movement 0.1 + prep-time 0.05 + init time 0.05 + punch 2*0.05 (2 burst-movements)
+	noise: 0.1
+	distribution: uniform
+	output: Writing
+}
+
+// Contains all the math we need to know to solve the problems
+define facts {
+	(mf1 multiply-fact 7 17.5 122.5)
+	(mf2 multiply-fact 20 22.5 450)
+	(af1 add-fact 3 7 10)
+	(af2 add-fact 10 10 20)
+	(mf3 multiply-fact 8 20 160)
+	(mf4 multiply-fact 20 25 500)
+	(af3 add-fact 4 8 12)
+	(af4 add-fact 12 8 20)
+	(af5 add-fact 2.5 8 10.5)
+	(af6 add-fact 10.5 10 20.5)
+	(mf5 multiply-fact 20.5 25 512.5)
+	(sf1 subtract-fact 450 122.5 327.5)
+	(sf2 subtract-fact 500 160 340)
+	(sf3 subtract-fact 512.5 160 352.5)
+}
+
+// Define the visual with a graph representation. V2 holds same-level items. V3 holds lower-level items
+define visual {
+	// Screen for question 1
+	(screen1 screen nil rect1 shaded-area)
+	(rect1 rectangle nil base1 nil 22.5 nil)
+	(base1 base rect2 nil 3)
+	(rect2 rectangle base2 nil 7 17.5 nil)
+	(base2 base nil nil 10)
+	// Screen for question 2
+	(screen2 screen nil rect3 shaded-area)
+	(rect3 rectangle nil base3 nil 25 nil)
+	(base3 base rect4 nil 4)
+	(rect4 rectangle base4 nil 8 20 nil)
+	(base4 base nil nil 8)
+	// Screen for question 3
+	(screen3 screen nil rect5 shaded-area)
+	(rect5 rectangle nil base5 nil 25 nil)
+	(base5 base rect6 nil 2.5)
+	(rect6 rectangle base6 nil 8 20 nil)
+	(base6 base nil nil 10)
+}
+
+define script {
+	screens = ["screen1", "screen2", "screen3"]
+	current_screen = 1
+	
+	// Run until we've seen all screens (i.e. done all questions)
+	while(current_screen != 4) {
+		trial-start()
+		print("Question ", current_screen, ": ")
+		print("Find the area of the wall to be painted. Do not paint the door.")
+		screen(screens[current_screen - 1])
+		done = 1
+
+		// Run until the shaded-area has been written
+		while (done) {
+			run-until-action("write")
+			ac = last-action()
+			if(ac[1] == "base") {
+				set-buffer-slot("input", "slot4", ac[2]) // Update V4 (the base) of the rectangle currently in visual
+			}
+
+			if(ac[1] == "area") {
+				set-buffer-slot("input", "slot6", ac[2])	// Update V6 (the area) of the rectangle currently in visual
+			}
+			
+			if(ac[1] == "shaded-area") {
+				done = 0	// Signal script we are done with this question
+			} else {
+				screen(screens[current_screen - 1])	// Make the top-level of the visicon (the screen) the visual focus
+			}
+		}
+		issue-reward()
+		purge-bindings()
+		trial-end()
+		current_screen = current_screen + 1
+	}
+}

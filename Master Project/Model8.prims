@@ -1,0 +1,470 @@
+// Model: Node 8
+// Written by: I.D.M. Akrum
+// Date: 14/03/2022
+
+define task node8 {
+  initial-goals: (read-task) 
+  default-activation: 1.0
+  ol: t
+  rt: -2.0
+  lf: 0.2
+  default-operator-self-assoc: 0.0
+  egs: 0.05
+  retrieval-reinforces: t
+	//bindings-in-dm: t // if bindings are stored to dm, their activation drops too low and the model doesn't work because operator conditions don't match
+}
+
+// This skill has the knowledge of how to do division
+define goal divide {
+	operator divide-action {
+		WM1 <> nil
+		WM2 <> V0
+		WM3 = nil
+		*action = divide
+		*fact-type = none
+	==>
+		divide-fact -> *fact-type
+	}
+}
+
+// Calculate the area of the shapes: rectangle, triangle, and trapezoid
+// Given that this skill "overloads" the one from model 0, its operators have a higher activation to promote them over the operators from model 0
+define goal area {
+	// Since trapezoids don't have a single base, get the total base by adding its base1 and base2
+	operator add-trapezoid-bases(activation=10.0) {
+		G1 = area
+		V4 = trapezoid
+		WM1 = nil
+	==>
+		G1 -> G2	// Save the original goal so it can be returned to 
+		segments -> G1
+		base -> *side	// Set the focus to base
+		add -> *action
+		nil -> WM0
+		>>V3	// Move down to the segments that make up the trapezoid base
+	}
+
+	// This skill triggers after the trapezoid bases have been added
+	operator base-of-trapezoid(activation=10.0) {
+		G1 = area
+		WM1 <> nil
+		*action = add
+		V<<	// Returning from segments, look at the trapezoid again rather than the last base
+		V4 = trapezoid
+	==>	
+		none -> *action
+	}
+
+	// If we're looking a triangle, divide the previously found area by 2
+	operator area-triangle(activation=10.0) {
+		G1 = area
+		WM3 <> nil
+		V4 = triangle
+		*action = multiply
+	==>
+		WM3 -> WM1
+		*two -> WM2
+		nil -> WM3
+		divide -> *action
+	}
+
+	// Do the same for a trapezoid as we do for a triangle
+	operator area-trapezoid(activation=10.0) {
+		G1 = area
+		WM3 <> nil
+		V4 = trapezoid
+		*action = multiply
+	==>
+		WM3 -> WM1
+		*two -> WM2
+		nil -> WM3
+		divide -> *action
+	}
+
+	// If we have the answer in WM3 and we're dealing with a rectangle, write the answer
+	operator end-area-rect(activation=10.0) {
+		G1 = area
+		WM3 <> nil
+		V4 = rectangle
+	==>
+		G1 -> *task
+		WM3 -> *answer 
+		write -> G1 
+		none -> *action	// Reset the action since we are finished with the goal
+	}
+
+	// If we have the answer in WM3 and we did the area-triangle operator, write the answer
+	operator end-area-triangle(activation=10.0) {
+		G1 = area
+		WM3 <> nil
+		V4 = triangle
+		*action = divide
+	==>
+		G1 -> *task
+		WM3 -> *answer 
+		write -> G1 
+		none -> *action	// Reset the action since we are finished with the goal
+	}
+
+	// If we have the answer in WM3 and we did the area-trapezoid operator, write the answer
+	operator end-area-trapezoid(activation=10.0) {
+		G1 = area
+		WM3 <> nil
+		V4 = trapezoid
+		*action = divide
+	==>
+		G1 -> *task
+		WM3 -> *answer 
+		write -> G1 
+		none -> *action	// Reset the action since we are finished with the goal
+	}
+
+	// If we miss the base, we switch to the segments skill to determine the base
+	operator missing-base(activation=10.0) {
+		G1 = area
+		V1 = shape
+		V4 <> trapezoid	// This doesn't hold for trapezoids since they don't have a single base
+		V5 = nil
+		V3 <> nil
+		WM1 = nil
+	==>
+		segments -> G1
+		base -> *side	// Set the focus to base
+		add -> *action
+		nil -> WM0
+		>>V3	// Move down to the segments that make up this shape
+	}
+}
+
+// Skill for finding a side. 
+define goal side {
+	// If we're trying to determine the base, read the height
+	operator other-side-base {
+		G1 = side
+		*side = base
+		WM2 = nil
+		V6 <> nil
+	==>
+		V6 -> WM2
+	}
+
+	// If we're trying to determine the height, read the base
+	operator other-side-height {
+		G1 = side
+		*side = height
+		WM2 = nil
+		V5 <> nil
+	==>
+		V5 -> WM2
+	}
+
+	// Read the two bases of the trapezoid
+	operator read-bases-of-trapezoid {
+		G1 = side
+		*side = height
+		V4 = trapezoid
+		WM2 = nil
+	==>
+		>>V3
+		G1 -> G2
+		segments -> G1
+		base -> *side	// temporarily change the side to the base for the addition
+		add -> *action
+	}
+
+	// After we know the total base for the trapezoid, store it in WM2 as per usual
+	operator other-side-height-trapezoid {
+		G1 = side
+		*side = base
+		*action = add
+		V<< // We are still looking at the last base of the trapezoid, so return visual focus to trapezoid
+		V4 = trapezoid
+		V7 <> nil
+		WM1 <> nil
+		WM1 <> V7	// Should trigger if we have a value in WM1, but it's not the area
+	==>
+		WM1 -> WM2
+		nil -> WM1
+		height -> *side
+		none -> *action
+	}
+
+	// Put the area in WM1 and divide WM1 by WM2
+	operator area-by-other-side {
+		G1 = side
+		WM1 = nil
+		WM2 <> nil
+		V7 <> nil
+	==>
+		V7 -> WM1
+		divide -> *action
+	}
+
+	// If we're dealing with a triangle, we have to multiply the answer from the division by 2
+	operator side-triangle {
+		G1 = side
+		WM3 <> nil
+		V4 = triangle
+		*action = divide	// This triggers after we've divided the area by the other side
+	==>
+		WM3 -> WM1
+		*two -> WM2
+		nil -> WM3
+		multiply -> *action
+	}
+
+	// As with the area, we also multiply by 2 for trapezoids
+	operator side-trapezoid {
+		G1 = side
+		WM3 <> nil
+		V4 = trapezoid
+		*action = divide
+	==>
+		WM3 -> WM1
+		*two -> WM2
+		nil -> WM3
+		multiply -> *action
+	}
+
+	// For a trapezoid, one base will be given. We must subtract the total base we found by the base already given
+	operator other-base-trapezoid {
+		G1 = side
+		*side = base
+		*action = multiply
+		V4 = trapezoid
+		WM3 <> nil
+	==>
+		G1 -> G2
+		segments -> G1
+		subtract -> *action
+		WM3 -> WM1
+		nil -> WM2
+		nil -> WM3
+	}
+	
+	// The side of rectangle is found after the area has been divided by the other side
+	operator end-side-rect {
+		G1 = side
+		WM3 <> nil
+		V4 = rectangle
+		*action = divide
+	==>
+		*side -> *task
+		WM3 -> *answer
+		write -> G1
+		none -> *action
+	}
+
+	// The side of a triangle is found after we've multiplied the found side by two
+	operator end-side-triangle {
+		G1 = side
+		WM3 <> nil
+		V4 = triangle
+		*action = multiply
+		WM2 = *two
+	==>
+		*side -> *task
+		WM3 -> *answer
+		write -> G1
+		none -> *action
+	}
+	
+	// The other base of a trapezoid has been found after the segment skill is finished
+	// In this case, WM1 will hold the final answer and the action will be none
+	operator end-base-trapezoid {
+		G1 = side
+		*side = base
+		WM1 <> nil
+		*action = subtract
+	==>
+		*side -> *task
+		WM1 -> *answer
+		write -> G1
+		none -> *action
+	}
+
+	// The height of a trapezoid has been found after we've multiplied the found side by two (as triangle)
+	operator end-height-trapezoid {
+		G1 = side
+		WM3 <> nil
+		V4 = trapezoid
+		*side = height
+		*action = multiply
+	==>
+		*side -> *task
+		WM3 -> *answer
+		write -> G1
+		none -> *action
+	}
+}
+
+// Find the specified side of a shape where the side is given by known segments (i.e. lines or other shapes)
+// Functions virtually the same as shaded-area, but looks at different slots and has a different action
+define goal segments {
+	// If we're interested in bases, but the width of a base isn't given, skip it
+	operator skip-base {
+		G1 = segments
+		*side = base
+		V4 = base
+		V5 = nil
+		WM2 = V0
+	==>
+		nil -> WM2
+	}
+
+	// If we're interested in heights, but the height of a height segment isn't given, skip it
+	operator skip-height {
+		G1 = segments
+		*side = height
+		V4 = height
+		V6 = nil
+		WM2 = V0
+	==>
+		nil -> WM2
+	}
+
+	// If G2 isn't nil, return to the G2 skill rather than writing down the WM1 answer
+	operator end-segments-alt(activation=10.0) {
+		G1 = segments
+		G2 <> nil
+		WM1 <> nil
+		*done-iterate = yes
+	==>
+		G2 -> G1
+		nil -> G2
+		na -> *done-iterate
+	}
+
+	// If there are no more lines/shapes, write down the total of the added segments
+	operator end-segments(activation=10.0) {
+		G1 = segments
+		G2 = nil
+		WM1 <> nil
+		*done-iterate = yes
+	==>
+		V<<	// Return from the iteration to the top shape
+		*side -> *task
+		WM1 -> *answer 
+		write -> G1 
+		none -> *action
+		na -> *done-iterate
+	}
+}
+
+// Contains all the math we need to know to solve the problems
+define facts {
+	(mf6 multiply-fact 43 33 1419)
+	(df1 divide-fact 1419 2 709.5)
+	(df2 divide-fact 2146 58 37)
+	(mf7 multiply-fact 37 2 74)
+	(af7 add-fact 31 33 64)
+	(mf8 multiply-fact 64 7 448)
+	(df3 divide-fact 448 2 224)
+	(df4 divide-fact 1425 25 57)
+	(mf9 multiply-fact 57 2 114)
+	(sf4 subtract-fact 114 56 58)
+	(af8 add-fact 28 31 59)
+	(df5 divide-fact 472 59 8)
+	(mf10 multiply-fact 8 2 16)
+}
+
+// Define the visual with a graph representation. V2 holds same-level items. V3 holds lower-level items
+// V4 is a further specification of the V1 type. V5 is width, V6 is height. V7 is area for shapes
+define visual {
+	// Screen for question 1 (question 3 from model 0)
+	(screen1 screen nil rect1 shaded-area)
+	(rect1 shape nil base1 rectangle nil 25 nil)
+	(base1 segment rect2 nil base 2.5 nil)
+	(rect2 shape base3 nil rectangle 8 20 nil)
+	(base3 segment nil nil base 10 nil)
+	// Screen for question 2 (triangle_area in node 1)
+	(screen2 screen nil triangle1 area)
+	(triangle1 shape nil nil triangle 43 33 nil)
+	// Screen for question 3 (triangle_height in node 1)
+	(screen3 screen nil triangle2 side height)
+	(triangle2 shape nil nil triangle 58 nil 2146)
+	// Screen for question 4 (trapezoid_area in node 1)
+	(screen4 screen nil trapezoid1 area)
+	(trapezoid1 shape nil base4 trapezoid nil 7 nil)
+	(base4 segment base5 nil base 31 nil)
+	(base5 segment nil nil base 33 nil)
+	// Screen for question 5 (trapezoid_base in node 1)
+	(screen5 screen nil trapezoid2 side base)
+	(trapezoid2 shape nil base6 trapezoid nil 25 1425)
+	(base6 segment base7 nil base 56 nil)
+	(base7 segment nil nil base nil nil)
+	// Screen for question 6 (trapezoid_height in node 1)
+	(screen6 screen nil trapezoid3 side height)
+	(trapezoid3 shape nil base8 trapezoid nil nil 472)
+	(base8 segment base9 nil base 28 nil)
+	(base9 segment nil nil base 31 nil)
+}
+
+define script {
+	screens = ["screen1", "screen2", "screen3", "screen6", "screen4", "screen5"]
+	current_screen = 1	
+	
+	// Run until we've seen all screens (i.e. done all questions)
+	while(current_screen != 7) {
+		trial-start()
+
+		// Initialise the bindings
+		add-binding("item","none")
+		add-binding("action","none")
+		add-binding("fact-type","none")
+		add-binding("done-iterate", "na")
+		add-binding("two", 2)
+
+		screen(screens[current_screen - 1])
+		done = 1
+
+		goal = get-buffer-slot("input", "slot4")
+		sub-goal = get-buffer-slot("input", "slot5")
+		shape = get-buffer-slot("input", "slot3")
+
+		// Determine the shape of interest
+		if((goal != "side") && (sub-goal != "nil")) {
+			shape = sub-goal
+		}
+
+		// Print information on the screen for modeller
+		print("Question", current_screen, ": ")
+
+		if(goal != "side") {
+			print("Find the", goal, "of", shape)
+		} else {
+			print("Find the", sub-goal, "of", shape)
+		}
+
+		// Run until the goal has been reached and the answer written down
+		while (done) {
+			run-until-action("write")
+			ac = last-action()
+
+			if(ac[1] == "base") {
+				set-buffer-slot("input", "slot5", ac[2]) // Update V5 (the base) of the current visual chunk
+			}
+	
+			if(ac[1] == "height") {
+				set-buffer-slot("input", "slot6", ac[2]) // Update V6 (the height) of the current visual chunk
+			}
+
+			if(ac[1] == "area") {
+				set-buffer-slot("input", "slot7", ac[2])	// Update V7 (the area) of the shape currently in visual
+			}
+			
+			screen(screens[current_screen - 1])	// Make the top-level of the visicon (the screen) the visual focus
+
+			// Check if task is complete, if not, read the task and continue with new information
+			if((ac[1] == goal) || (ac[1] == sub-goal)) {
+				done = 0	// Signal script we are done with this question
+			} else {
+				set-buffer-slot("goal", "slot1", "read-task")	// Reset the goal to reading the task
+			}
+		}
+		issue-reward()
+		purge-bindings()
+		trial-end()
+		current_screen = current_screen + 1
+	}
+}

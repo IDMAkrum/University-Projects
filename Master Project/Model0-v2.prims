@@ -1,0 +1,541 @@
+// Model: Node 0 - v4 (final)
+// Written by: I.D.M. Akrum
+// Date: 11/03/2022
+
+define task node0 {
+  initial-goals: (read-task) 
+  default-activation: 1.0
+  ol: t
+  rt: -2.0
+  lf: 0.2
+  default-operator-self-assoc: 0.0
+  egs: 0.05
+  retrieval-reinforces: t
+	//bindings-in-dm: t // if bindings are stored to dm, their activation drops too low and the model doesn't work because operator conditions don't match
+}
+
+// read the task from the screen and make it your current goal
+define goal read-task {
+	// A simple goal assumes the top shape is the focus
+	operator read-simple-goal {
+		G1 = read-task
+		V1 = screen
+		V4 <> nil
+		V5 = nil
+	==>
+		V4 -> G1
+		>>V3
+	}
+
+	// A complex goal has a shape specified as focus (e.g. area rect5 asks to find the area of rect5 in the visicon)
+	operator read-complex-goal {
+		G1 = read-task
+		V1 = screen
+		V4 <> side
+		V5 <> nil
+	==>
+		search-visual -> G1	// Before we get to the top goal, we first need to find the specified shape
+		V4 -> G2 // The top goal is stored in G2 
+		V5 -> WM1	// The specified shape gets placed in WM1 so that we can iterate until it's found
+		>>V3 // shift focus to the first shape
+	}
+
+	// If the goal is to find a side, V5 will specify which side we are interested in
+	operator read-side {
+		G1 = read-task
+		V1 = screen
+		V4 = side
+		V5 <> nil
+	==>
+		V4 -> G1
+		V5 -> *side	// save the specified side as a constant
+		>>V3 // shift focus to the first shape
+	}
+}
+
+// This skill is used for searching the visual until a specified shape is found
+// It relies on the one-level-down and next-item operators from the iterate-over skill
+define goal search-visual {
+	// If the shape is reached, clear the working memory so that associated goal skill can fire
+	operator reached-shape {
+		G1 = search-visual
+		WM1 = WM2
+	==>
+		nil -> WM1
+		nil -> WM2
+		G2 -> G1	// Move on to the top goal
+		nil -> G2
+	}
+
+	// If the shape isn't reached, clear only WM2 so that the iterate-over skill can continue firing
+	operator not-the-shape {
+		G1 = search-visual
+		WM1 <> WM2
+	==>
+		nil -> WM2
+	}
+}
+
+// Write down a previously-found answer and reset the goal and WM
+define goal write {
+	operator write-answer {
+		G1 = write
+	==>
+		write -> AC1
+		*task -> AC2
+		*answer -> AC3
+		nil -> G1
+		nil -> WM0
+	}
+}
+
+// This skill iterates over items in the visicon
+define goal iterate-over {
+	operator first-item {
+		G1 <> nil
+		WM1 = nil
+		*item <> none
+	==>
+		*item -> WM1
+	}
+
+	operator second-item {
+		G1 <> nil
+		WM1 <> nil
+		WM2 = V0
+		*item <> none
+	==>
+		*item -> WM2
+	}
+
+	// Move down to a level by moving to the V3 slot in the visual chunk
+	operator one-level-down {
+		G1 <> nil
+		V3 <> nil
+		V2 = nil	// Only go down a level if there's no items at the same level
+		WM1 <> nil
+		WM2 = nil
+	==>
+		>>V3
+		V0 -> WM2	// Place V0 in WM2 to show we are looking at a new visual chunk that needs to be evaluated
+		none -> *item
+	}
+
+	// Move to the next item at the V2 level
+	operator next-item {
+		G1 <> nil
+		V2 <> nil
+		WM1 <> nil
+		WM2 = nil
+	==>
+		>>V2
+		V0 -> WM2	// Place V0 in WM2 to show we are looking at a new visual chunk that needs to be evaluated
+		none -> *item
+	}
+
+	// Keep WM1 as the total of an iterative calculation
+	operator update-wm {
+		G1 <> nil
+		WM3 <> nil
+	==>
+		WM3 -> WM1
+		nil -> WM2
+		nil -> WM3
+	}
+
+	// Finish iteration if there's no more V2 or V3 level items
+	operator end-iterate {
+		G1 <> nil
+		WM1 <> nil
+		WM2 = nil	// Only finish iteration after update-wm
+		V2 = nil
+		V3 = nil
+		*done-iterate = no
+	==>
+		yes -> *done-iterate
+		none -> *item
+	}
+}
+
+// This skill has the knowledge of how to do multiplication
+define goal multiply {
+	operator multiply-action {
+		WM1 <> nil
+		WM2 <> V0
+		WM3 = nil
+		*action = multiply
+		*fact-type = none
+	==>
+		multiply-fact -> *fact-type
+	}
+}
+
+// This skill has the knowledge of how to do subtraction
+define goal subtract {
+	operator substract-action {
+		WM1 <> nil
+		WM2 <> V0
+		WM3 = nil
+		*action = subtract
+		*fact-type = none
+	==>
+		subtract-fact -> *fact-type
+	}
+}
+
+// This skill has the knowledge of how to do addition
+define goal add {
+	operator add-action {
+		WM1 <> nil
+		WM2 <> V0
+		WM3 = nil
+		*action = add
+		*fact-type = none
+	==>
+		add-fact -> *fact-type
+	}
+}
+
+// Find a shaded area, i.e. the area of a shape minus the other areas within that shape
+define goal shaded-area {
+	// When we start this goal, set the action to subtract
+	operator init-shaded-area {
+		G1 = shaded-area
+		V1 = shape
+		*action = none
+		*done-iterate = na
+	==>
+		subtract -> *action
+		no -> *done-iterate	// We begin iterating and aren't finished yet
+	}
+
+	// Find the area of a shape and put it in item
+	operator area-of-shape {
+		G1 = shaded-area
+		V1 = shape
+		V7 <> nil
+		*item = none
+		*done-iterate = no
+	==>
+		V7 -> *item
+	}
+	
+	// If an area is missing, find that first
+	operator missing-area {
+		G1 = shaded-area
+		V1 = shape
+		V7 = nil
+		*done-iterate = no
+	==>
+		area -> G1
+		nil -> WM0
+		none -> *action	// Reset the action since we're changing goals
+		na -> *done-iterate	// Set iterate to NA since we halt the iterate process
+	}
+
+	// This skill fires when a visual chunk isn't a shape
+	operator not-a-shape {
+		G1 = shaded-area
+		V1 <> shape
+		WM2 = V0
+		*item = none
+		*done-iterate = no
+	==>
+		nil -> WM2	// Clear the WM2 slot to continue iteration
+	}
+
+	// Finish the shaded area calculation and signal the writing action
+	operator end-shaded-area {
+		G1 = shaded-area
+		WM1 <> nil
+		*done-iterate = yes
+	==>
+		V<<	// Return from the iteration to the top shape
+		G1 -> *task
+		WM1 -> *answer 
+		write -> G1 
+		none -> *action	// We're done with this goal, so reset the action
+		na -> *done-iterate	// We're done with the goal, so we're no longer in an interation process
+	}
+}
+
+// Calculate the area of a rectangle
+define goal area {
+	// Get the base of the focus shape
+	operator base-of-shape {
+		G1 = area
+		V1 = shape
+		V5 <> nil
+		WM1 = nil
+	==>
+		V5 -> WM1
+	}
+
+	// Get the height of the focus shape
+	operator height-of-shape {
+		G1 = area
+		V1 = shape
+		V6 <> nil
+		WM2 = nil
+	==> 
+		V6 -> WM2
+	}
+
+	// If we have the base and height, signal we want to multiply them through the action constant
+	operator base-times-height {
+		G1 = area
+		WM1 <> nil
+		WM2 <> nil
+		WM3 = nil
+		*action = none
+	==>
+		multiply -> *action
+	}
+
+	// If we have the answer in the imaginal buffer, signal the writing action
+	operator end-area {
+		G1 = area
+		WM3 <> nil
+	==>
+		G1 -> *task
+		WM3 -> *answer 
+		write -> G1 
+		none -> *action	// Reset the action since we are finished with the goal
+	}
+
+	// If we miss the base, we switch to the add-segments skill to determine the base
+	operator missing-base {
+		G1 = area
+		V1 = shape
+		V5 = nil
+		V3 <> nil
+		WM1 = nil
+	==>
+		segments -> G1
+		base -> *side	// Set the focus to base
+		add -> *action
+		nil -> WM0
+		>>V3	// Move down to the segments that make up this shape
+	}
+
+	// If we miss the height, we switch to the add-segments skill to determine the height
+	operator missing-height {
+		G1 = area
+		V1 = shape
+		V6 = nil
+		V3 <> nil
+		WM2 = nil
+	==>
+		segments -> G1
+		height -> *side	// Set the focus to height
+		add -> *action
+		nil -> WM0
+		>>V3	// Move down to the segments that make up this shape
+	}
+}
+
+// Skill for finding a side. Since we're missing a divide skill, the only way to find a side is through segments
+define goal side {
+	// Find a side by adding segments
+	operator side-by-segments {
+		G1 = side
+		V7 = nil
+		V3 <> nil
+	==>
+		segments -> G1
+		add -> *action
+		nil -> WM0
+		>>V3
+	}
+}
+
+// Find the specified side of a shape where the side is given by known segments (i.e. lines or other shapes)
+// Functions virtually the same as shaded-area, but looks at different slots and has a different action
+define goal segments {
+	operator init-segments {
+		G1 = segments
+		*action <> none
+		*done-iterate = na
+	==>
+		no -> *done-iterate
+	}
+
+	// If we're trying to find a base, read the width of a segment/shape
+	operator read-width {
+		G1 = segments
+		*side = base
+		*item = none
+		*done-iterate = no
+		V5 <> nil
+	==>
+		V5 -> *item
+	}
+
+	// If we're trying to find a height, read the height of a segment/shape
+	operator read-height {
+		G1 = segments
+		*side = height
+		*item = none
+		*done-iterate = no
+		V6 <> nil
+	==>
+		V6 -> *item
+	}
+
+	// Clear the WM2 if our current segment isn't the side we're interested in (e.g. a height when we're looking at bases)
+	operator wrong-segment {
+		G1 = segments
+		*item = none
+		*done-iterate = no
+		V1 = segment
+		V4 <> *side
+		WM2 = V0
+	==>
+		nil -> WM2
+	}
+
+	// If there are no more lines/shapes, write down the total of the added segments
+	operator end-segments {
+		G1 = segments
+		WM1 <> nil
+		*done-iterate = yes
+	==>
+		V<<	// Return from the iteration to the top shape
+		*side -> *task
+		WM1 -> *answer 
+		write -> G1 
+		none -> *action
+		na -> *done-iterate
+	}
+}
+
+// Do some math with slots in the imaginal buffer
+// Doing math is simply "remembering" the answer 
+define goal math {
+	// start when there's two numbers in the imaginal buffer but no answer
+	operator start-math {
+		WM1 <> nil
+		WM2 <> nil
+		WM3 = nil
+		RT1 = nil	// Don't start math if we already retrieved something
+		*fact-type <> none // Only start math if we know the fact-type
+	==>
+		*fact-type -> RT1	// fact-type specifies which math operation we're doing e.g. addition or multiplication
+		WM1 -> RT2
+		WM2 -> RT3
+	}
+
+	// End math if we retrieved the answer. Place the answer in WM3 of imaginal buffer
+	operator end-math {
+		RT4 <> nil
+		WM3 = nil
+	==>
+		RT4 -> WM3
+		none -> *fact-type	// Clear the fact-type since we finished this math-action
+	}
+}
+
+// The write action approximates punching keys on the key board
+// Since there is no default hand position, it assumes the ACT-R min-fitts-movement variable (default 0.1) as movement time
+define action write {
+	latency: 0.4 // min-fitts-movement 0.1 + prep-time 0.05 + init time 0.05 + punch 4*0.05 (4 burst-movements equals 2 keys)
+	noise: 0.1	// Allows us to reach minimum of 1 key (2 burst-movements of 0.05) and maximum of 3 keys (6 burst-movements of 0.05)
+	distribution: uniform
+	output: Writing
+}
+
+// Contains all the math we need to know to solve the problems
+define facts {
+	(mf1 multiply-fact 7 17.5 122.5)
+	(mf2 multiply-fact 20 22.5 450)
+	(af1 add-fact 3 7 10)
+	(af2 add-fact 10 10 20)
+	(mf3 multiply-fact 8 20 160)
+	(mf4 multiply-fact 20 25 500)
+	(af3 add-fact 4 8 12)
+	(af4 add-fact 12 8 20)
+	(af5 add-fact 2.5 8 10.5)
+	(af6 add-fact 10.5 10 20.5)
+	(mf5 multiply-fact 20.5 25 512.5)
+	(sf1 subtract-fact 450 122.5 327.5)
+	(sf2 subtract-fact 500 160 340)
+	(sf3 subtract-fact 512.5 160 352.5)
+}
+
+// Define the visual with a graph representation. V2 holds same-level items. V3 holds lower-level items
+// V4 is a further specification of the V1 type. V5 is width, V6 is height. V7 is area for shapes
+define visual {
+	// Screen for question 1
+	(screen1 screen nil rect1 shaded-area)
+	(rect1 shape nil base1 rectangle nil 22.5 nil)
+	(base1 segment rect2 nil base 3 nil)
+	(rect2 shape base2 nil rectangle 7 17.5 nil)
+	(base2 segment nil nil base 10 nil)
+	// Screen for question 2
+	(screen2 screen nil rect3 shaded-area)
+	(rect3 shape nil base3 rectangle nil 25 nil)
+	(base3 segment rect4 nil base 4 nil)
+	(rect4 shape base4 nil rectangle 8 20 nil)
+	(base4 segment nil nil base 8 nil)
+	// Screen for question 3
+	(screen3 screen nil rect5 shaded-area)
+	(rect5 shape nil base5 rectangle nil 25 nil)
+	(base5 segment rect6 nil base 2.5 nil)
+	(rect6 shape base6 nil rectangle 8 20 nil)
+	(base6 segment nil nil base 10 nil)
+	// Screen for question 4 (extra to check that the search-visual goal works)
+	(screen4 screen nil rect3 area rect4)
+	// Screen for question 5 (extra to check that the side skill works)
+	(screen5 screen nil rect7 side base)
+	(rect7 shape nil base5 rectangle nil 25 nil)
+}
+
+define script {
+	screens = ["screen1", "screen2", "screen3"]
+	current_screen = 1
+	
+	// Run until we've seen all screens (i.e. done all questions)
+	while(current_screen != 4) {
+		trial-start()
+
+		// Initialise the bindings
+		add-binding("item","none")
+		add-binding("action","none")
+		add-binding("fact-type","none")
+		add-binding("done-iterate", "na")
+
+		// Print information on screen for modeller
+		print("Question ", current_screen, ": ")
+		print("Find the area of the wall to be painted. Do not paint the door.")
+		screen(screens[current_screen - 1])
+		done = 1
+
+		// Run until the shaded-area has been written
+		while (done) {
+			run-until-action("write")
+			ac = last-action()
+			if(ac[1] == "base") {
+				set-buffer-slot("input", "slot5", ac[2]) // Update V5 (the base) of the rectangle currently in visual
+			}
+
+			if(ac[1] == "area") {
+				set-buffer-slot("input", "slot7", ac[2])	// Update V7 (the area) of the rectangle currently in visual
+			}
+			
+			screen(screens[current_screen - 1])	// Make the top-level of the visicon (the screen) the visual focus
+			goal = get-buffer-slot("input", "slot4")
+			sub-goal = get-buffer-slot("input", "slot5")
+
+			// Check if task is complete, if not, read the task and continue with new information
+			if((ac[1] == goal) || (ac[1] == sub-goal)) {
+				done = 0	// Signal script we are done with this question
+			} else {
+				set-buffer-slot("goal", "slot1", "read-task")	// Reset the goal to reading the task
+			}
+		}
+		issue-reward()
+		purge-bindings()
+		trial-end()
+		current_screen = current_screen + 1
+	}
+}
